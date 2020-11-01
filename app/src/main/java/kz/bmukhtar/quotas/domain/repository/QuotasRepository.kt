@@ -6,5 +6,4 @@ import kz.bmukhtar.quotas.domain.model.observable.TypedObservable
 interface QuotasRepository {
 
     fun subscribeToQuotas(): TypedObservable<QuoteUpdate>
-    fun startUpdates()
 }

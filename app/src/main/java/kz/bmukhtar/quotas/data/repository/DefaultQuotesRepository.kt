@@ -4,6 +4,8 @@ import com.orhanobut.logger.Logger
 import io.socket.client.IO
 import io.socket.client.Socket
 import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
+import kz.bmukhtar.quotas.data.model.QuoteChange
+import kz.bmukhtar.quotas.domain.model.ChangeHistory
 import kz.bmukhtar.quotas.domain.model.Quote
 import kz.bmukhtar.quotas.domain.model.QuoteUpdate
 import kz.bmukhtar.quotas.domain.model.observable.BaseTypedObservable
@@ -11,6 +13,7 @@ import kz.bmukhtar.quotas.domain.model.observable.TypedObservable
 import kz.bmukhtar.quotas.domain.repository.QuotasRepository
 import org.json.JSONArray
 import java.util.TreeSet
+import kotlin.math.roundToInt
 
 private const val BASE_URL = "https://ws3.tradernet.ru/"
 private const val SUBSCRIBE_TO_QUOTAS_EVENT = "sup_updateSecurities2"
@@ -30,20 +33,18 @@ class DefaultQuotasRepository(
     private val observable: TypedObservable<QuoteUpdate> = BaseTypedObservable()
     private val quotes = TreeSet<Quote>(compareBy { it.ticker })
 
-
-    override fun subscribeToQuotas(): TypedObservable<QuoteUpdate> = observable
-
-    override fun startUpdates() {
+    init {
         startListeningUpdates()
     }
+
+    override fun subscribeToQuotas(): TypedObservable<QuoteUpdate> = observable
 
     private fun startListeningUpdates() {
         val socket = IO.socket(BASE_URL)
 
         socket.on(QUOTAS_CHANGE_EVENT) { data ->
-            onQuotesUpdate(data)
+            handleQuotesChangeEvent(data)
         }.on(Socket.EVENT_CONNECT) {
-            Logger.d("on connect")
             socket.emit(SUBSCRIBE_TO_QUOTAS_EVENT, getEmitParams())
         }.on(Socket.EVENT_DISCONNECT) {
             Logger.d("on disconnect")
@@ -57,23 +58,49 @@ class DefaultQuotasRepository(
         return jsonArray
     }
 
-    private fun onQuotesUpdate(data: Array<Any>) {
-        val changes = quotesApiParser.map(data)
+    private fun handleQuotesChangeEvent(data: Array<Any>) {
+        val changes = quotesApiParser.parse(data)
 
         changes.forEach { change ->
-            val prevQuote = quotes.find { it.ticker == change.ticker }
-            if (prevQuote == null) {
-                quotes.add(change)
-            } else {
-                quotes.remove(prevQuote)
-                quotes.add(prevQuote.copy(
-                    changeInPercent = change.changeInPercent
-                ))
+            when (change) {
+                is QuoteChange.New -> addQuote(change)
+                is QuoteChange.Update -> updateQuote(change)
             }
         }
 
         observable.notifyObservers(QuoteUpdate.Update(quotes.toList()))
         Logger.d(changes.toString())
+    }
+
+    private fun updateQuote(
+        change: QuoteChange.Update
+    ) {
+        val prevQuote = quotes.find { it.ticker == change.ticker } ?: return
+        quotes.remove(prevQuote)
+        quotes.add(prevQuote.copy(
+            changeHistory = ChangeHistory(prev = prevQuote.priceDiff, current = change.change)
+        ))
+    }
+
+    private fun addQuote(newQuote: QuoteChange.New) {
+        val prevQuote = quotes.find { it.ticker == newQuote.ticker }
+        if (prevQuote != null) quotes.remove(prevQuote)
+
+        val minStep = newQuote.minStep
+        val change = newQuote.change
+
+        quotes.add(Quote(
+            ticker = newQuote.ticker,
+            stockMarket = newQuote.stockMarket,
+            securityName = newQuote.securityName,
+            price = getRoundedDouble(newQuote.price, minStep),
+            changeHistory = ChangeHistory(prev = change, current = change),
+            priceDiff = getRoundedDouble(newQuote.priceDiff, minStep)
+        ))
+    }
+
+    private fun getRoundedDouble(input: Double, roundTo: Double): Double {
+        return (input / roundTo).roundToInt() * roundTo
     }
 
 }

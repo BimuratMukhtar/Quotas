@@ -1,10 +1,11 @@
 package kz.bmukhtar.quotas.presentation.adapter
 
+import android.content.Context
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SortedList
 import coil.load
@@ -16,7 +17,7 @@ import java.util.Locale
 
 private const val BASE_LOGO_URL = "https://tradernet.ru/logos/get-logo-by-ticker?ticker="
 
-class QuotesAdapter : RecyclerView.Adapter<QuotesAdapter.QuoteVH>() {
+class QuotesAdapter : RecyclerView.Adapter<QuoteVH>() {
 
     private val sortedQuotes: SortedList<Quote> =
         SortedList(Quote::class.java, SortedListCallback(this))
@@ -35,53 +36,88 @@ class QuotesAdapter : RecyclerView.Adapter<QuotesAdapter.QuoteVH>() {
             sortedQuotes.addAll(update.quotes)
         }
     }
-
-    inner class QuoteVH(view: View) : RecyclerView.ViewHolder(view) {
-
-        private val ticker = view.ticker
-        private val securityImage = view.security_image
-        private val stockMarket = view.stock_market
-        private val price = view.price
-        private val changeInPercent = view.change_in_percent
-
-        fun bind(quote: Quote) {
-            ticker.text = quote.ticker
-            bindChangeInPercent(quote)
-            bindStockMarket(quote)
-            bindPrice(quote)
-            bindLogo(quote)
-        }
-
-        private fun bindChangeInPercent(quote: Quote) {
-            val context = changeInPercent.context
-            changeInPercent.background = if (quote.changeInPercent < 0.0) {
-                ContextCompat.getDrawable(context, R.drawable.bg_change_in_percent_red)
-            } else {
-                ContextCompat.getDrawable(context, R.drawable.bg_change_in_percent_green)
-            }
-            changeInPercent.text = quote.changeInPercent.toString()
-        }
-
-        private fun bindStockMarket(quote: Quote) {
-            val stockMarketText = "${quote.stockMarket} | ${quote.securityName}"
-            stockMarket.text = stockMarketText
-        }
-
-        private fun bindPrice(quote: Quote) {
-            val priceText = "${quote.price} (${quote.change})"
-            price.text = priceText
-        }
-
-        private fun bindLogo(quote: Quote) {
-            val logoUrl = "$BASE_LOGO_URL${quote.ticker.toLowerCase(Locale.getDefault())}"
-            securityImage.load(logoUrl)
-        }
-    }
 }
 
-class QuoteDiffCallback : DiffUtil.ItemCallback<Quote>() {
+class QuoteVH(view: View) : RecyclerView.ViewHolder(view) {
 
-    override fun areItemsTheSame(oldItem: Quote, newItem: Quote) = oldItem.ticker == newItem.ticker
+    private val ticker = view.ticker
+    private val securityImage = view.security_image
+    private val stockMarket = view.stock_market
+    private val price = view.price
+    private val change = view.change
 
-    override fun areContentsTheSame(oldItem: Quote, newItem: Quote) = oldItem == newItem
+    fun bind(quote: Quote) {
+        ticker.text = quote.ticker
+        bindChange(quote)
+        bindStockMarket(quote)
+        bindPrice(quote)
+        bindLogo(quote)
+    }
+
+    private fun bindChange(quote: Quote) {
+        val context = change.context
+        change.background = getChangeBackground(quote, context)
+        change.text = getChangeText(quote)
+        change.setTextColor(getChangeColor(quote, context))
+    }
+
+    private fun getChangeText(quote: Quote): String {
+        val currentChange = quote.changeHistory.current
+        val formattedChangeText = "%.2f".format(currentChange)
+        return if (currentChange < 0.0) {
+            formattedChangeText
+        } else {
+            "+$formattedChangeText"
+        }
+    }
+
+    private fun getChangeColor(
+        quote: Quote, context: Context
+    ): Int {
+        val changeHistory = quote.changeHistory
+        val currentChange = changeHistory.current
+        return when {
+            changeHistory.isNegative() || changeHistory.isPositive() -> {
+                ContextCompat.getColor(context, R.color.white)
+            }
+            currentChange < 0 -> {
+                ContextCompat.getColor(context, R.color.trade_red)
+            }
+            else -> {
+                ContextCompat.getColor(context, R.color.trade_green)
+            }
+        }
+    }
+
+    private fun getChangeBackground(
+        quote: Quote, context: Context
+    ): Drawable? {
+        val changeHistory = quote.changeHistory
+        return when {
+            changeHistory.isNegative() -> {
+                ContextCompat.getDrawable(context, R.drawable.bg_change_in_percent_red)
+            }
+            changeHistory.isPositive() -> {
+                ContextCompat.getDrawable(context, R.drawable.bg_change_in_percent_green)
+            }
+            else -> {
+                null
+            }
+        }
+    }
+
+    private fun bindStockMarket(quote: Quote) {
+        val stockMarketText = "${quote.stockMarket} | ${quote.securityName}"
+        stockMarket.text = stockMarketText
+    }
+
+    private fun bindPrice(quote: Quote) {
+        val priceText = "${quote.price} (${quote.priceDiff})"
+        price.text = priceText
+    }
+
+    private fun bindLogo(quote: Quote) {
+        val logoUrl = "$BASE_LOGO_URL${quote.ticker.toLowerCase(Locale.getDefault())}"
+        securityImage.load(logoUrl)
+    }
 }

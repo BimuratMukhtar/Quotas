@@ -2,8 +2,8 @@ package kz.bmukhtar.quotas.data.mapper
 
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kz.bmukhtar.quotas.data.model.QuoteChange
 import kz.bmukhtar.quotas.data.model.QuotesApi
-import kz.bmukhtar.quotas.domain.model.Quote
 import org.json.JSONObject
 
 private const val QUOTES_POSITION = 0
@@ -12,33 +12,33 @@ class QuotesApiParser {
 
     private val format = Json { ignoreUnknownKeys = true }
 
-    fun map(
+    fun parse(
         data: Array<Any>
-    ): List<Quote> {
+    ): List<QuoteChange> {
         val quotesAsString = (data[QUOTES_POSITION] as? JSONObject)?.toString()
             ?: return emptyList()
         val quotesApiResponse = format.decodeFromString<QuotesApi>(quotesAsString)
-        return mapQuotesApi(quotesApiResponse)
+        return quotesApiResponse.quotes.map {
+            if (
+                it.stockMarket == null ||
+                it.securityName == null ||
+                it.minStep == null ||
+                it.price == null ||
+                it.priceDiff == null
+            ) {
+                QuoteChange.Update(ticker = it.ticker, change = it.change)
+            } else {
+                QuoteChange.New(
+                    ticker = it.ticker,
+                    change = it.change,
+                    stockMarket = it.stockMarket,
+                    securityName = it.securityName,
+                    price = it.price,
+                    priceDiff = it.priceDiff,
+                    minStep = it.minStep
+                )
+            }
+        }
     }
 
-    private fun mapQuotesApi(quotesApi: QuotesApi): List<Quote> = quotesApi.quotes.map {
-        mapQuoteApi(it)
-    }
-
-    private fun mapQuoteApi(quoteApi: QuotesApi.QuoteApi) = quoteApi.run {
-        Quote(
-            ticker = ticker,
-            changeInPercent = changeInPercent,
-            stockMarket = stockMarket,
-            securityName = securityName,
-            price = getRoundedDouble(price, minStep),
-            change = getRoundedDouble(change, minStep),
-            minStep = minStep
-        )
-    }
-
-    private fun getRoundedDouble(input: Double, roundTo: Double): Double {
-//        return round(input / roundTo) * roundTo
-        return input
-    }
 }

@@ -20,7 +20,6 @@ class QuotesViewModel(
 
     init {
         observable.addObserver(observer)
-        repository.startUpdates()
     }
 
     val quoteUpdate: LiveData<QuoteUpdate> = _quotaChanges

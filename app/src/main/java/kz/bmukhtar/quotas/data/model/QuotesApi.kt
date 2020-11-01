@@ -14,16 +14,16 @@ data class QuotesApi(
         @SerialName("c")
         val ticker: String = "",
         @SerialName("pcp")
-        val changeInPercent: Double = 0.0,
-        @SerialName("ltr")
-        val stockMarket: String = "",
-        @SerialName("name")
-        val securityName: String = "",
-        @SerialName("ltp")
-        val price: Double = 0.0,
-        @SerialName("chg")
         val change: Double = 0.0,
+        @SerialName("ltr")
+        val stockMarket: String? = null,
+        @SerialName("name")
+        val securityName: String? = null,
+        @SerialName("ltp")
+        val price: Double? = null,
+        @SerialName("chg")
+        val priceDiff: Double? = null,
         @SerialName("min_step")
-        val minStep: Double = 0.0
+        val minStep: Double? = null
     )
 }
