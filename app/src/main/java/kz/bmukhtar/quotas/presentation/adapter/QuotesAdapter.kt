@@ -12,7 +12,7 @@ import coil.load
 import kotlinx.android.synthetic.main.item_quota.view.*
 import kz.bmukhtar.quotas.R
 import kz.bmukhtar.quotas.domain.model.Quote
-import kz.bmukhtar.quotas.domain.model.QuoteUpdate
+import kz.bmukhtar.quotas.domain.model.QuoteResult
 import java.util.Locale
 
 private const val BASE_LOGO_URL = "https://tradernet.ru/logos/get-logo-by-ticker?ticker="
@@ -31,10 +31,8 @@ class QuotesAdapter : RecyclerView.Adapter<QuoteVH>() {
         holder.bind(sortedQuotes[position])
     }
 
-    fun handleQuotesUpdate(update: QuoteUpdate) = when (update) {
-        is QuoteUpdate.Update -> {
-            sortedQuotes.addAll(update.quotes)
-        }
+    fun handleQuotesUpdate(result: QuoteResult) {
+        sortedQuotes.addAll(result.quotes)
     }
 }
 

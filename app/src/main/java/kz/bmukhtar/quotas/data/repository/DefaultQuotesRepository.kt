@@ -7,7 +7,7 @@ import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
 import kz.bmukhtar.quotas.data.model.QuoteChange
 import kz.bmukhtar.quotas.domain.model.ChangeHistory
 import kz.bmukhtar.quotas.domain.model.Quote
-import kz.bmukhtar.quotas.domain.model.QuoteUpdate
+import kz.bmukhtar.quotas.domain.model.QuoteResult
 import kz.bmukhtar.quotas.domain.model.observable.BaseTypedObservable
 import kz.bmukhtar.quotas.domain.model.observable.TypedObservable
 import kz.bmukhtar.quotas.domain.repository.QuotasRepository
@@ -30,14 +30,14 @@ class DefaultQuotasRepository(
     private val quotesApiParser: QuotesApiParser
 ) : QuotasRepository {
 
-    private val observable: TypedObservable<QuoteUpdate> = BaseTypedObservable()
+    private val quoteObservable: TypedObservable<QuoteResult> = BaseTypedObservable()
     private val quotes = TreeSet<Quote>(compareBy { it.ticker })
 
     init {
         startListeningUpdates()
     }
 
-    override fun subscribeToQuotas(): TypedObservable<QuoteUpdate> = observable
+    override fun subscribeToQuotas(): TypedObservable<QuoteResult> = quoteObservable
 
     private fun startListeningUpdates() {
         val socket = IO.socket(BASE_URL)
@@ -68,7 +68,7 @@ class DefaultQuotasRepository(
             }
         }
 
-        observable.notifyObservers(QuoteUpdate.Update(quotes.toList()))
+        quoteObservable.notifyObservers(QuoteResult(quotes.toList()))
         Logger.d(changes.toString())
     }
 
@@ -83,8 +83,7 @@ class DefaultQuotasRepository(
     }
 
     private fun addQuote(newQuote: QuoteChange.New) {
-        val prevQuote = quotes.find { it.ticker == newQuote.ticker }
-        if (prevQuote != null) quotes.remove(prevQuote)
+        quotes.removeAll { it.ticker == newQuote.ticker } //
 
         val minStep = newQuote.minStep
         val change = newQuote.change
@@ -100,7 +99,8 @@ class DefaultQuotasRepository(
     }
 
     private fun getRoundedDouble(input: Double, roundTo: Double): Double {
-        return (input / roundTo).roundToInt() * roundTo
+        val decimals = (1 / roundTo).roundToInt()
+        return (input * decimals) / decimals
     }
 
 }

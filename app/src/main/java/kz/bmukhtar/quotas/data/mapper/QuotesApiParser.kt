@@ -19,13 +19,11 @@ class QuotesApiParser {
             ?: return emptyList()
         val quotesApiResponse = format.decodeFromString<QuotesApi>(quotesAsString)
         return quotesApiResponse.quotes.map {
-            if (
-                it.stockMarket == null ||
+            if (it.stockMarket == null ||
                 it.securityName == null ||
                 it.minStep == null ||
                 it.price == null ||
-                it.priceDiff == null
-            ) {
+                it.priceDiff == null) {
                 QuoteChange.Update(ticker = it.ticker, change = it.change)
             } else {
                 QuoteChange.New(

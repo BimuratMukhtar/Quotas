@@ -2,8 +2,10 @@ package kz.bmukhtar.quotas.presentation.fragment
 
 import android.os.Bundle
 import android.view.View
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.android.synthetic.main.quotes_fragment.*
 import kz.bmukhtar.quotas.R
@@ -12,6 +14,7 @@ import kz.bmukhtar.quotas.presentation.viewmodel.DIViewModelFactory
 import kz.bmukhtar.quotas.presentation.viewmodel.QuotesViewModel
 import org.kodein.di.DIAware
 import org.kodein.di.android.x.di
+
 
 class QuotesFragment : Fragment(R.layout.quotes_fragment), DIAware {
 
@@ -31,13 +34,20 @@ class QuotesFragment : Fragment(R.layout.quotes_fragment), DIAware {
     private fun initVM() {
         viewModel = ViewModelProvider(this, DIViewModelFactory(di)).get(QuotesViewModel::class.java)
 
-        viewModel.quoteUpdate.observe(viewLifecycleOwner) {
+        viewModel.quoteResult.observe(viewLifecycleOwner) {
             adapter.handleQuotesUpdate(it)
         }
     }
 
     private fun initViews() {
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        val itemDecor = DividerItemDecoration(context, LinearLayoutManager.VERTICAL)
+        ContextCompat.getDrawable(
+            requireContext(),
+            R.drawable.bg_divider
+        )?.let { itemDecor.setDrawable(it) }
+        recyclerView.addItemDecoration(itemDecor)
+
         recyclerView.adapter = adapter
     }
 

@@ -10,4 +10,5 @@
 
     <color name="trade_green">#75BA46</color>
     <color name="trade_red">#FD2D53</color>
+    <color name="gray">#BEBEC0</color>
 </resources>
