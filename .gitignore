@@ -1,15 +1,19 @@
+*.class
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# Intellij project files
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+*.ipr
+*.iws
+.idea/
+
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+target/
+node_modules/
+
+.gradle
 local.properties
