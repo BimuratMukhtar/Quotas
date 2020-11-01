@@ -7,10 +7,10 @@
     tools:context=".presentation.fragment.QuotesFragment"
     >
 
-    <TextView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/quotes_recycler"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="Hello"
         />
 
 </FrameLayout>

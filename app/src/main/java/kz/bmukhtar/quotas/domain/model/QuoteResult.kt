@@ -1,4 +1,5 @@
 package kz.bmukhtar.quotas.domain.model
 
-class QuoteResult {
+sealed class QuoteResult {
+    data class Update(val quotes: List<Quote>) : QuoteResult()
 }
