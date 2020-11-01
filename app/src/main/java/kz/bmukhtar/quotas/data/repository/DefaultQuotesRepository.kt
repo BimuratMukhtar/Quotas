@@ -3,12 +3,14 @@ package kz.bmukhtar.quotas.data.repository
 import com.orhanobut.logger.Logger
 import io.socket.client.IO
 import io.socket.client.Socket
-import kz.bmukhtar.quotas.data.mapper.QuotesApiMapper
-import kz.bmukhtar.quotas.domain.model.QuoteResult
+import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
+import kz.bmukhtar.quotas.domain.model.Quote
+import kz.bmukhtar.quotas.domain.model.QuoteUpdate
 import kz.bmukhtar.quotas.domain.model.observable.BaseTypedObservable
 import kz.bmukhtar.quotas.domain.model.observable.TypedObservable
 import kz.bmukhtar.quotas.domain.repository.QuotasRepository
 import org.json.JSONArray
+import java.util.TreeSet
 
 private const val BASE_URL = "https://ws3.tradernet.ru/"
 private const val SUBSCRIBE_TO_QUOTAS_EVENT = "sup_updateSecurities2"
@@ -22,12 +24,14 @@ private val TICKER_TO_WATCH_CHANGES =
     )
 
 class DefaultQuotasRepository(
-    private val quotesApiMapper: QuotesApiMapper
+    private val quotesApiParser: QuotesApiParser
 ) : QuotasRepository {
 
-    private val observable: TypedObservable<QuoteResult> = BaseTypedObservable()
+    private val observable: TypedObservable<QuoteUpdate> = BaseTypedObservable()
+    private val quotes = TreeSet<Quote>(compareBy { it.ticker })
 
-    override fun subscribeToQuotas(): TypedObservable<QuoteResult> = observable
+
+    override fun subscribeToQuotas(): TypedObservable<QuoteUpdate> = observable
 
     override fun startUpdates() {
         startListeningUpdates()
@@ -54,8 +58,22 @@ class DefaultQuotasRepository(
     }
 
     private fun onQuotesUpdate(data: Array<Any>) {
-        val quotes = quotesApiMapper.map(data)
-        observable.notifyObservers(QuoteResult.Update(quotes))
+        val changes = quotesApiParser.map(data)
+
+        changes.forEach { change ->
+            val prevQuote = quotes.find { it.ticker == change.ticker }
+            if (prevQuote == null) {
+                quotes.add(change)
+            } else {
+                quotes.remove(prevQuote)
+                quotes.add(prevQuote.copy(
+                    changeInPercent = change.changeInPercent
+                ))
+            }
+        }
+
+        observable.notifyObservers(QuoteUpdate.Update(quotes.toList()))
+        Logger.d(changes.toString())
     }
 
 }

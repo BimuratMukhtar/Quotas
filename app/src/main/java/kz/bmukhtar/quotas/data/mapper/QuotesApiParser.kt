@@ -8,7 +8,7 @@ import org.json.JSONObject
 
 private const val QUOTES_POSITION = 0
 
-class QuotesApiMapper {
+class QuotesApiParser {
 
     private val format = Json { ignoreUnknownKeys = true }
 
@@ -31,9 +31,14 @@ class QuotesApiMapper {
             changeInPercent = changeInPercent,
             stockMarket = stockMarket,
             securityName = securityName,
-            price = price,
-            change = change,
+            price = getRoundedDouble(price, minStep),
+            change = getRoundedDouble(change, minStep),
             minStep = minStep
         )
+    }
+
+    private fun getRoundedDouble(input: Double, roundTo: Double): Double {
+//        return round(input / roundTo) * roundTo
+        return input
     }
 }

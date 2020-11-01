@@ -3,7 +3,7 @@ package kz.bmukhtar.quotas
 import android.app.Application
 import com.orhanobut.logger.AndroidLogAdapter
 import com.orhanobut.logger.Logger
-import kz.bmukhtar.quotas.data.mapper.QuotesApiMapper
+import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
 import kz.bmukhtar.quotas.data.repository.DefaultQuotasRepository
 import kz.bmukhtar.quotas.domain.repository.QuotasRepository
 import kz.bmukhtar.quotas.presentation.viewmodel.QuotesViewModel
@@ -20,10 +20,10 @@ class App : Application(), DIAware {
     override val di = DI.lazy {
         import(androidXModule(this@App))
         bind<QuotasRepository>() with provider {
-            DefaultQuotasRepository(quotesApiMapper = instance())
+            DefaultQuotasRepository(quotesApiParser = instance())
         }
         bind<QuotesViewModel>() with provider { QuotesViewModel(repository = instance()) }
-        bind<QuotesApiMapper>() with provider { QuotesApiMapper() }
+        bind<QuotesApiParser>() with provider { QuotesApiParser() }
     }
 
     override fun onCreate() {
