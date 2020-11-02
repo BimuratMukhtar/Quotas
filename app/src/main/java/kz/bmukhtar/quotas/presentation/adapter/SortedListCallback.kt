@@ -21,4 +21,8 @@ class SortedListCallback(
     override fun areItemsTheSame(item1: Quote?, item2: Quote?): Boolean {
         return item1?.ticker == item2?.ticker
     }
+
+    override fun getChangePayload(item1: Quote?, item2: Quote?): Any? {
+        return super.getChangePayload(item1, item2)
+    }
 }
