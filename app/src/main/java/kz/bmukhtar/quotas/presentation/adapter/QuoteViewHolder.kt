@@ -101,7 +101,8 @@ class QuoteVH(view: View) : RecyclerView.ViewHolder(view) {
     }
 
     private fun bindPrice(quote: Quote) {
-        val priceText = "${quote.price} (${quote.priceDiff})"
+        val priceText =
+            "${quote.price.toBigDecimal().toPlainString()} (${quote.priceDiff.toBigDecimal().toPlainString()})"
         price.text = priceText
     }
 
