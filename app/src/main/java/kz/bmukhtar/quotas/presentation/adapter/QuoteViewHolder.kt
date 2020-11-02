@@ -49,8 +49,8 @@ class QuoteVH(view: View) : RecyclerView.ViewHolder(view) {
 
     private fun getChangeText(quote: Quote): String {
         val currentChange = quote.changeHistory.current
-        val formattedChangeText = "%.2f".format(currentChange)
-        return if (currentChange < 0.0) {
+        val formattedChangeText = "${"%.2f".format(currentChange)}%"
+        return if (currentChange <= 0.0) {
             formattedChangeText
         } else {
             "+$formattedChangeText"
@@ -63,10 +63,13 @@ class QuoteVH(view: View) : RecyclerView.ViewHolder(view) {
         val changeHistory = quote.changeHistory
         val currentChange = changeHistory.current
         return when {
-            changeHistory.isNegative() || changeHistory.isPositive() -> {
+            changeHistory.hasChange() -> {
                 ContextCompat.getColor(context, R.color.white)
             }
-            currentChange < 0 -> {
+            currentChange == 0.0 -> {
+                ContextCompat.getColor(context, R.color.black)
+            }
+            currentChange < 0.0 -> {
                 ContextCompat.getColor(context, R.color.trade_red)
             }
             else -> {

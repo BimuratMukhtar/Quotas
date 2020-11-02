@@ -1,8 +1,9 @@
 package kz.bmukhtar.quotas.data.repository
 
-import com.orhanobut.logger.Logger
 import io.socket.client.IO
 import io.socket.client.Socket
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
 import kz.bmukhtar.quotas.data.model.QuoteChange
 import kz.bmukhtar.quotas.domain.model.ChangeHistory
@@ -27,7 +28,8 @@ private val TICKER_TO_WATCH_CHANGES =
     )
 
 class DefaultQuotasRepository(
-    private val quotesApiParser: QuotesApiParser
+    private val quotesApiParser: QuotesApiParser,
+    private val expireScheduler: QuoteChangeExpireScheduler = QuoteChangeExpireScheduler()
 ) : QuotasRepository {
 
     private val quoteObservable: TypedObservable<QuoteResult> = BaseTypedObservable()
@@ -46,8 +48,6 @@ class DefaultQuotasRepository(
             handleQuotesChangeEvent(data)
         }.on(Socket.EVENT_CONNECT) {
             socket.emit(SUBSCRIBE_TO_QUOTAS_EVENT, getEmitParams())
-        }.on(Socket.EVENT_DISCONNECT) {
-            Logger.d("on disconnect")
         }
         socket.connect()
     }
@@ -63,32 +63,41 @@ class DefaultQuotasRepository(
 
         changes.forEach { change ->
             when (change) {
-                is QuoteChange.New -> addQuote(change)
-                is QuoteChange.Update -> updateQuote(change)
+                is QuoteChange.New -> handleNewQuote(change)
+                is QuoteChange.Update -> handleUpdateQuote(change)
             }
         }
-
-        quoteObservable.notifyObservers(QuoteResult(quotes.toList()))
-        Logger.d(changes.toString())
+        notifyQuotesChange()
     }
 
-    private fun updateQuote(
+    private fun handleUpdateQuote(
         change: QuoteChange.Update
     ) {
         val prevQuote = quotes.find { it.ticker == change.ticker } ?: return
-        quotes.remove(prevQuote)
-        quotes.add(prevQuote.copy(
-            changeHistory = ChangeHistory(prev = prevQuote.priceDiff, current = change.change)
-        ))
+        val changeHistory = ChangeHistory(
+            prev = prevQuote.changeHistory.current,
+            current = change.change
+        )
+        val updatedQuote = prevQuote.copy(
+            changeHistory = changeHistory
+        )
+        updateQuote(updatedQuote)
+        if (changeHistory.hasChange()) {
+            expireScheduler.schedule(
+                quote = updatedQuote,
+                onQuoteUpdate = {
+                    updateQuote(it)
+                    notifyQuotesChange()
+                }
+            )
+        }
     }
 
-    private fun addQuote(newQuote: QuoteChange.New) {
-        quotes.removeAll { it.ticker == newQuote.ticker } //
-
+    private fun handleNewQuote(newQuote: QuoteChange.New) {
         val minStep = newQuote.minStep
         val change = newQuote.change
 
-        quotes.add(Quote(
+        updateQuote(quote = Quote(
             ticker = newQuote.ticker,
             stockMarket = newQuote.stockMarket,
             securityName = newQuote.securityName,
@@ -98,9 +107,18 @@ class DefaultQuotasRepository(
         ))
     }
 
+    private fun updateQuote(quote: Quote) {
+        runBlocking(Dispatchers.Main) {
+            quotes.removeAll { it.ticker == quote.ticker }
+            quotes.add(quote)
+        }
+    }
+
+    private fun notifyQuotesChange() =
+        quoteObservable.notifyObservers(QuoteResult(quotes.toList()))
+
     private fun getRoundedDouble(input: Double, roundTo: Double): Double {
         val decimals = (1 / roundTo).roundToInt()
         return (input * decimals) / decimals
     }
-
 }
