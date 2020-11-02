@@ -1,8 +1,8 @@
 package kz.bmukhtar.quotas.domain.model.observable
 
 
-open class BaseTypedObservable<T : Any?> :
-    TypedObservable<T> {
+open class DefaultTypedObservable<T : Any?> :
+    MutableTypedObservable<T> {
 
     private val observers = mutableSetOf<TypedObserver<T>>()
 

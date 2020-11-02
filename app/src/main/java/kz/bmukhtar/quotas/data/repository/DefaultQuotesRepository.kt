@@ -1,64 +1,35 @@
 package kz.bmukhtar.quotas.data.repository
 
-import io.socket.client.IO
-import io.socket.client.Socket
-import kz.bmukhtar.quotas.data.QuotesDataSource
-import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
+import kz.bmukhtar.quotas.data.datasource.QuotesLocalDataSource
+import kz.bmukhtar.quotas.data.datasource.QuotesRemoteDataSource
 import kz.bmukhtar.quotas.data.model.QuoteChange
 import kz.bmukhtar.quotas.domain.model.ChangeHistory
 import kz.bmukhtar.quotas.domain.model.Quote
 import kz.bmukhtar.quotas.domain.model.QuoteResult
-import kz.bmukhtar.quotas.domain.model.observable.BaseTypedObservable
+import kz.bmukhtar.quotas.domain.model.observable.DefaultTypedObservable
 import kz.bmukhtar.quotas.domain.model.observable.TypedObservable
-import kz.bmukhtar.quotas.domain.repository.QuotasRepository
-import org.json.JSONArray
+import kz.bmukhtar.quotas.domain.model.observable.newTypedObserver
+import kz.bmukhtar.quotas.domain.repository.QuotesRepository
 import kotlin.math.roundToInt
 
-private const val BASE_URL = "https://ws3.tradernet.ru/"
-private const val SUBSCRIBE_TO_QUOTAS_EVENT = "sup_updateSecurities2"
-private const val QUOTAS_CHANGE_EVENT = "q"
-private val TICKER_TO_WATCH_CHANGES =
-    arrayOf(
-        "RSTI", "GAZP", "MRKZ", "RUAL", "HYDR", "MRKS", "SBER", "FEES", "TGKA", "VTBR",
-        "ANH.US", "VICL.US", "BURG.US", "NBL.US", "YETI.US", "WSFS.US", "NIO.US", "DXC.US",
-        "MIC.US", "HSBC.US", "EXPN.EU", "GSK.EU", "SHP.EU", "MAN.EU", "DB1.EU", "MUV2.EU",
-        "TATE.EU", "KGF.EU", "MGGT.EU", "SGGD.EU"
-    )
 
-class DefaultQuotasRepository(
-    private val quotesApiParser: QuotesApiParser,
-    private val dataSource: QuotesDataSource,
+class DefaultQuotesRepository(
+    remoteDataSource: QuotesRemoteDataSource,
+    private val localDataSource: QuotesLocalDataSource,
     private val expireScheduler: QuoteChangeExpireScheduler = QuoteChangeExpireScheduler()
-) : QuotasRepository {
+) : QuotesRepository {
 
-    private val quoteObservable: TypedObservable<QuoteResult> = BaseTypedObservable()
+    private val quoteObservable = DefaultTypedObservable<QuoteResult>()
 
     init {
-        startListeningUpdates()
+        remoteDataSource.subscribeToQuoteChanges().addObserver(newTypedObserver {
+            handleQuotesChangeEvent(it)
+        })
     }
 
-    override fun subscribeToQuotas(): TypedObservable<QuoteResult> = quoteObservable
+    override fun subscribeToQuotes(): TypedObservable<QuoteResult> = quoteObservable
 
-    private fun startListeningUpdates() {
-        val socket = IO.socket(BASE_URL)
-
-        socket.on(QUOTAS_CHANGE_EVENT) { data ->
-            handleQuotesChangeEvent(data)
-        }.on(Socket.EVENT_CONNECT) {
-            socket.emit(SUBSCRIBE_TO_QUOTAS_EVENT, getEmitParams())
-        }
-        socket.connect()
-    }
-
-    private fun getEmitParams(): JSONArray {
-        val jsonArray = JSONArray()
-        TICKER_TO_WATCH_CHANGES.forEach { jsonArray.put(it) }
-        return jsonArray
-    }
-
-    private fun handleQuotesChangeEvent(data: Array<Any>) {
-        val changes = quotesApiParser.parse(data)
-
+    private fun handleQuotesChangeEvent(changes: List<QuoteChange>) {
         changes.forEach { change ->
             when (change) {
                 is QuoteChange.New -> handleNewQuote(change)
@@ -71,7 +42,7 @@ class DefaultQuotasRepository(
     private fun handleUpdateQuote(
         change: QuoteChange.Update
     ) {
-        val prevQuote = dataSource.getQuoteOrNull(change.ticker) ?: return
+        val prevQuote = localDataSource.getQuoteOrNull(change.ticker) ?: return
 
         val changeHistory = ChangeHistory(
             prev = prevQuote.changeHistory.current,
@@ -80,12 +51,12 @@ class DefaultQuotasRepository(
         val updatedQuote = prevQuote.copy(
             changeHistory = changeHistory
         )
-        dataSource.updateQuote(updatedQuote)
+        localDataSource.updateQuote(updatedQuote)
         if (changeHistory.hasChange()) {
             expireScheduler.schedule(
                 quote = updatedQuote,
                 onQuoteUpdate = {
-                    dataSource.updateQuote(it)
+                    localDataSource.updateQuote(it)
                     notifyQuotesChange()
                 }
             )
@@ -96,7 +67,7 @@ class DefaultQuotasRepository(
         val minStep = newQuote.minStep
         val change = newQuote.change
 
-        dataSource.updateQuote(quote = Quote(
+        localDataSource.updateQuote(quote = Quote(
             ticker = newQuote.ticker,
             stockMarket = newQuote.stockMarket,
             securityName = newQuote.securityName,
@@ -107,7 +78,7 @@ class DefaultQuotasRepository(
     }
 
     private fun notifyQuotesChange() =
-        quoteObservable.notifyObservers(QuoteResult(dataSource.toList()))
+        quoteObservable.notifyObservers(QuoteResult(localDataSource.toList()))
 
     private fun getRoundedDouble(input: Double, roundTo: Double): Double {
         val decimals = (1 / roundTo).roundToInt()

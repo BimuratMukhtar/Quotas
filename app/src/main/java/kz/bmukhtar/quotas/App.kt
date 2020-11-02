@@ -3,10 +3,11 @@ package kz.bmukhtar.quotas
 import android.app.Application
 import com.orhanobut.logger.AndroidLogAdapter
 import com.orhanobut.logger.Logger
-import kz.bmukhtar.quotas.data.QuotesDataSource
+import kz.bmukhtar.quotas.data.datasource.QuotesLocalDataSource
+import kz.bmukhtar.quotas.data.datasource.QuotesRemoteDataSource
 import kz.bmukhtar.quotas.data.mapper.QuotesApiParser
-import kz.bmukhtar.quotas.data.repository.DefaultQuotasRepository
-import kz.bmukhtar.quotas.domain.repository.QuotasRepository
+import kz.bmukhtar.quotas.data.repository.DefaultQuotesRepository
+import kz.bmukhtar.quotas.domain.repository.QuotesRepository
 import kz.bmukhtar.quotas.presentation.viewmodel.QuotesViewModel
 import org.kodein.di.DI
 import org.kodein.di.DIAware
@@ -21,15 +22,20 @@ class App : Application(), DIAware {
 
     override val di = DI.lazy {
         import(androidXModule(this@App))
-        bind<QuotasRepository>() with provider {
-            DefaultQuotasRepository(
-                quotesApiParser = instance(),
-                dataSource = instance()
+        bind<QuotesViewModel>() with provider { QuotesViewModel(repository = instance()) }
+        bind<QuotesRepository>() with provider {
+            DefaultQuotesRepository(
+                remoteDataSource = instance(),
+                localDataSource = instance()
             )
         }
-        bind<QuotesViewModel>() with provider { QuotesViewModel(repository = instance()) }
         bind<QuotesApiParser>() with provider { QuotesApiParser() }
-        bind<QuotesDataSource>() with singleton { QuotesDataSource() }
+        bind<QuotesLocalDataSource>() with singleton { QuotesLocalDataSource() }
+        bind<QuotesRemoteDataSource>() with singleton {
+            QuotesRemoteDataSource(
+                quotesApiParser = instance()
+            )
+        }
     }
 
     override fun onCreate() {

@@ -1,9 +1,9 @@
-package kz.bmukhtar.quotas.data
+package kz.bmukhtar.quotas.data.datasource
 
 import kz.bmukhtar.quotas.domain.model.Quote
 import java.util.concurrent.ConcurrentHashMap
 
-class QuotesDataSource {
+class QuotesLocalDataSource {
 
     private val quotes = ConcurrentHashMap<String, Quote>()
 
